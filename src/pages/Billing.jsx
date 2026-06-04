@@ -394,7 +394,11 @@ const Billing = () => {
     setSubmitting(true);
     const items = cart.map(item => ({
       product_id: item.id,
-      quantity: item.quantity
+      quantity: item.quantity,
+      unit_price: item.unit_price,                     // dynamic price from frontend
+      making_charges_total: (item.making_charges_per_gram || 0) * item.quantity,  // total making for this line
+      stone_charges_total: (item.stone_charges_per_gram || 0) * item.quantity,
+      gst_percent: item.gst_percent
     }));
 
     try {

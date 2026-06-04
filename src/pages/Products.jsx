@@ -140,7 +140,7 @@ const Products = () => {
         barcode_sku: product.barcode_sku || '',
         product_image: null
       });
-      setImagePreview(product.product_image ? `http://127.0.0.1:8000/storage/${product.product_image}` : null);
+      setImagePreview(product.product_image ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${product.product_image}` : null);
     } else {
       setEditingProduct(null);
       setFormData({
@@ -293,7 +293,7 @@ const Products = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{product.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {product.product_image ? (
-                      <img src={`http://127.0.0.1:8000/storage/${product.product_image}`} className="h-10 w-10 object-cover rounded" alt="" />
+                      <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${product.product_image}`} className="h-10 w-10 object-cover rounded" alt="" />
                     ) : <div className="h-10 w-10 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center text-xs">No img</div>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white">{product.product_name}</td>
