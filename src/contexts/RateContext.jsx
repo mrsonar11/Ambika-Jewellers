@@ -47,6 +47,8 @@ export const RateProvider = ({ children }) => {
       await saveRates(ratesArray);
       toast.success("Today's rates saved");
       closeModal();
+      // Dispatch custom event to refresh LiveRates
+      window.dispatchEvent(new CustomEvent('rates-updated'));
     } catch (error) {
       toast.error('Failed to save rates');
     } finally {

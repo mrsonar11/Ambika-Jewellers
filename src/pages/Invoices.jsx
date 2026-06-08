@@ -28,208 +28,145 @@ const Invoices = () => {
   };
 
   const printInvoice = async (invoice) => {
-  try {
-    // Fetch full invoice with items and customer
-    const fullInvoiceRes = await axios.get(`/invoices/${invoice.id}`);
-    const fullInvoice = fullInvoiceRes.data;
+    try {
+      const fullInvoiceRes = await axios.get(`/invoices/${invoice.id}`);
+      const fullInvoice = fullInvoiceRes.data;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Pop-up blocked. Please allow pop-ups for this site.');
-      return;
-    }
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Pop-up blocked. Please allow pop-ups for this site.');
+        return;
+      }
 
-    // Format rates snapshot (if available)
-    let ratesHtml = '';
-    if (fullInvoice.rates_snapshot) {
-      const rates = JSON.parse(fullInvoice.rates_snapshot);
-      ratesHtml = `
-        <div class="rates-section">
-          <strong>Today's Rates (per 10g):</strong><br/>
-          ${Object.entries(rates)
-            .map(([cat, rate]) => `${cat}: ₹${rate || '—'}`)
-            .join(' &nbsp;&nbsp; ')}
-        </div>
-      `;
-    }
+      let ratesHtml = '';
+      if (fullInvoice.rates_snapshot) {
+        try {
+          const rates = JSON.parse(fullInvoice.rates_snapshot);
+          ratesHtml = `
+            <div class="rates-section" style="background-color: #d8d8d8; margin-top: 10px; font-size: 10px; text-align: center; border-radius: 4px;">
+              <strong>Today's Rates (per 10g):</strong><br/>
+              ${Object.entries(rates).map(([cat, rate]) => `${cat}: ₹${rate || '—'}`).join(' &nbsp;&nbsp; ')}
+            </div>
+          `;
+        } catch(e) { console.error('Invalid rates snapshot'); }
+      }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Invoice ${fullInvoice.invoice_number}</title>
+      const itemsRows = fullInvoice.items.map((item, idx) => {
+        const weight = item.weight || item.product?.weight || 0;
+        const ratePerGram = weight > 0 ? (item.unit_price / weight).toFixed(2) : '—';
+        const productName = item.product_name || item.product?.product_name || 'Manual Item';
+        const category = item.product?.category?.name || '—';
+        return `
+          <tr>
+            <td class="text-right">${idx + 1}</td>
+            <td>${productName}</td>
+            <td>${category}</td>
+            <td class="text-right">${weight}</td>
+            <td class="text-right">${ratePerGram}</td>
+            <td class="text-right">${item.quantity}</td>
+            <td class="text-right">₹${Number(item.unit_price).toLocaleString()}</td>
+            <td class="text-right">₹${Number(item.total).toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Invoice ${fullInvoice.invoice_number}</title>
         <style>
-          * { box-sizing: border-box; }
-          body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            font-size: 14px;
-            line-height: 1.4;
-          }
-          .invoice-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border: 1px solid #ddd;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #8B4513;
-          }
-          .shop-name {
-            font-size: 32px;
-            font-weight: bold;
-            font-family: 'Georgia', serif;
-            color: #8B4513;
-          }
-          .tagline {
-            font-size: 12px;
-            color: #555;
-            margin-top: 5px;
-          }
-          .invoice-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 5px;
-          }
-          .customer-info {
-            margin: 15px 0;
-            padding: 10px;
-            background: #f9f9f9;
-            border-radius: 5px;
-          }
-          .rates-section {
-            margin: 15px 0;
-            padding: 10px;
-            background: #f0f7ff;
-            font-size: 13px;
-            text-align: center;
-            border-radius: 5px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-          }
-          th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            vertical-align: top;
-          }
-          th {
-            background-color: #f2f2f2;
-            font-weight: 600;
-          }
-          .text-right {
-            text-align: right;
-          }
-          .totals {
-            text-align: right;
-            margin-top: 20px;
-            border-top: 1px solid #ddd;
-            padding-top: 10px;
-          }
-          .totals div {
-            margin: 5px 0;
-          }
-          .grand-total {
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 10px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 12px;
-            color: #777;
-            border-top: 1px solid #eee;
-            padding-top: 10px;
-          }
+          @page { size: A5; margin: 1cm; }
+          thead { display: table-header-group; }
+          table { page-break-inside: avoid; width: 100%; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+          *{box-sizing:border-box} body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;font-size:14px}
+          .invoice-container{max-width:800px;margin:0 auto;background:#fff;padding:20px;border:1px solid #ddd}
+          .header{text-align:center;border-bottom:2px solid #8B4513}
+          .shop-name{font-size:32px;font-weight:bold;color:#8B4513}
+          .tagline{font-size:12px;color:#555}
+          .address{font-size:12px;color:#555;margin-top:5px}
+          .invoice-title{font-size:18px;font-weight:bold;margin-top:5px}
+          .customer-info{margin:15px 0;padding:10px;background:#e3f5fd;border-radius:4px}
+          .rates-section{margin:15px 0;padding:10px;background:#d8d8d8;text-align:center;border-radius:4px
+          -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            }
+          table{width:100%;border-collapse:collapse;margin:20px 0}
+          th,td{border:1px solid #ddd;padding:8px;text-align:left}
+          .text-right{text-align:right}
+          .totals{text-align:right;margin-top:20px;border-top:1px solid #ddd;padding-top:10px}
+          .grand-total{font-size:18px;font-weight:bold;margin-top:10px}
+          .footer{text-align:center;margin-top:10px;font-size:12px;color:#777}
+          .note-bg{background-color:#eef2f5;padding:8px;font-size:12px;text-align:center;border-radius:4px}
           @media print {
             body { margin: 0; padding: 0; }
             .invoice-container { border: none; padding: 0; }
+            .note-bg { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .customer-info { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         </style>
-      </head>
-      <body>
-        <div class="invoice-container">
-          <div class="header">
-            <div class="shop-name">💎 AMBIKA JEWELLERS</div>
-            <div class="tagline">Since 1985 | Trust & Quality</div>
-            <div class="invoice-title">TAX INVOICE</div>
-            <div>Invoice #: ${fullInvoice.invoice_number}</div>
-            <div>Date: ${fullInvoice.invoice_date}</div>
+        </head>
+        <body>
+          <div class="invoice-container">
+            <div class="header">
+              <div class="shop-name">💎 AMBIKA JEWELLERS</div>
+              <div class="tagline">Since 1985 | Trust & Quality</div>
+              <div class="address">Saraswati nagar, Near Rasbihari Int. School, Meri Link Road, Panchavati, Nashik-422003.</div>
+              <div class="invoice-title">TAX INVOICE</div>
+              <div style="display: flex; justify-content: space-between; width: 100%;">
+                <span>Invoice #: ${fullInvoice.invoice_number}</span>
+                <span>Date: ${fullInvoice.invoice_date}</span>
+              </div>
+            </div>
+            <div class="customer-info">
+              <div style="font-size: 14px;">
+                <strong>Customer:</strong> ${fullInvoice.customer.name}<br>
+                <strong>Mobile:</strong> ${fullInvoice.customer.mobile}
+              </div>
+              <div style="font-size: 10px; color: #555; margin-top: 5px;">
+                ${fullInvoice.customer.address ? `<strong>Address:</strong> ${fullInvoice.customer.address}<br>` : ''}
+                ${fullInvoice.customer.gst_number ? `<strong>GST:</strong> ${fullInvoice.customer.gst_number}` : ''}
+              </div>
+            </div>
+            ${ratesHtml}
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th class="text-right">Weight(g)</th>
+                  <th class="text-right">Rate(₹/g)</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Price(₹)</th>
+                  <th class="text-right">Total(₹)</th>
+                </tr>
+              </thead>
+              <tbody>${itemsRows}</tbody>
+            </table>
+            <div class="totals">
+              <div>Subtotal: ₹${Number(fullInvoice.subtotal).toLocaleString()}</div>
+              <div>Making Charges: ₹${Number(fullInvoice.making_charges_total).toLocaleString()}</div>
+              <div>Stone Charges: ₹${Number(fullInvoice.stone_charges_total).toLocaleString()}</div>
+              <div>CGST: ₹${Number(fullInvoice.cgst_amount).toLocaleString()} | SGST: ₹${Number(fullInvoice.sgst_amount).toLocaleString()}</div>
+              <div>Discount: ₹${Number(fullInvoice.discount_amount).toLocaleString()}</div>
+              <div class="grand-total">Grand Total: ₹${Number(fullInvoice.grand_total).toLocaleString()}</div>
+              <div>Paid: ₹${Number(fullInvoice.paid_amount).toLocaleString()}</div>
+              <div>Due: ₹${Number(fullInvoice.due_amount).toLocaleString()}</div>
+            </div>
+            <div class="note-bg">* Rate includes making & stone charges</div>
+            <div class="footer">Thank you for your business!<br>This is a computer generated invoice.</div>
           </div>
-
-          <div class="customer-info">
-            <strong>Customer:</strong> ${fullInvoice.customer.name}<br>
-            <strong>Mobile:</strong> ${fullInvoice.customer.mobile}<br>
-            ${fullInvoice.customer.gst_number ? `<strong>GST:</strong> ${fullInvoice.customer.gst_number}<br>` : ''}
-          </div>
-
-          ${ratesHtml}
-
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Category</th>
-                <th class="text-right">Weight (g)</th>
-                <th class="text-right">Rate (₹/g)</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Price (₹)</th>
-                <th class="text-right">Total (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${fullInvoice.items.map(item => {
-                const weight = item.product.weight || 0;
-                const ratePerGram = weight > 0 ? (item.unit_price / weight).toFixed(2) : '—';
-                return `
-                  <tr>
-                    <td>${item.product.product_name}</td>
-                    <td>${item.product.category?.name || '—'}</td>
-                    <td class="text-right">${weight}</td>
-                    <td class="text-right">${ratePerGram}</td>
-                    <td class="text-right">${item.quantity}</td>
-                    <td class="text-right">₹${Number(item.unit_price).toLocaleString()}</td>
-                    <td class="text-right">₹${Number(item.total).toLocaleString()}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-
-          <div class="totals">
-            <div>Subtotal: ₹${Number(fullInvoice.subtotal).toLocaleString()}</div>
-            <div>Making Charges: ₹${Number(fullInvoice.making_charges_total).toLocaleString()}</div>
-            <div>Stone Charges: ₹${Number(fullInvoice.stone_charges_total).toLocaleString()}</div>
-            <div>CGST: ₹${Number(fullInvoice.cgst_amount).toLocaleString()} | SGST: ₹${Number(fullInvoice.sgst_amount).toLocaleString()}</div>
-            <div>Discount: ₹${Number(fullInvoice.discount_amount).toLocaleString()}</div>
-            <div class="grand-total">Grand Total: ₹${Number(fullInvoice.grand_total).toLocaleString()}</div>
-            <div>Paid: ₹${Number(fullInvoice.paid_amount).toLocaleString()}</div>
-            <div>Due: ₹${Number(fullInvoice.due_amount).toLocaleString()}</div>
-          </div>
-
-          <div class="footer">
-            Thank you for your business!<br>
-            This is a computer generated invoice.
-          </div>
-        </div>
-        <script>window.print();</script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  } catch (error) {
-    toast.error('Could not load invoice details for printing');
-  }
-};
+          <script>window.print();</script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (error) {
+      console.error('Print error:', error);
+      toast.error('Could not load invoice details for printing');
+    }
+  };
 
   return (
     <div className="p-6 dark:bg-gray-900 min-h-screen">
@@ -248,33 +185,33 @@ const Invoices = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {loading ? (
-              <tr><td colSpan="7" className="text-center py-4 dark:text-gray-300">Loading...</td></tr>
-            ) : invoices.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-4 dark:text-gray-300">No invoices found</td></tr>
-            ) : (
-              invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{inv.invoice_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{inv.customer?.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{inv.invoice_date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-gray-200">₹{inv.grand_total.toLocaleString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-600 dark:text-red-400">₹{inv.due_amount.toLocaleString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm capitalize">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      inv.payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      inv.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>{inv.payment_status}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                    <button onClick={() => viewInvoice(inv.id)} className="text-blue-600 dark:text-blue-400"><FiEye size={18} /></button>
-                    <button onClick={() => printInvoice(inv)} className="text-green-600 dark:text-green-400"><FiPrinter size={18} /></button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
+  {loading ? (
+    <tr><td colSpan="7" className="text-center py-4 dark:text-gray-300">Loading...</td></tr>
+  ) : invoices.length === 0 ? (
+    <tr><td colSpan="7" className="text-center py-4 dark:text-gray-300">No invoices found</td></tr>
+  ) : (
+    invoices.map((inv) => (
+      <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{inv.invoice_number}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{inv.customer?.name}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{inv.invoice_date}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 dark:text-gray-200">₹{inv.grand_total.toLocaleString()}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-600 dark:text-red-400">₹{inv.due_amount.toLocaleString()}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm capitalize">
+          <span className={`px-2 py-1 rounded text-xs ${
+            inv.payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+            inv.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+          }`}>{inv.payment_status}</span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+          <button onClick={() => viewInvoice(inv.id)} className="text-blue-600 dark:text-blue-400"><FiEye size={18} /></button>
+          <button onClick={() => printInvoice(inv)} className="text-green-600 dark:text-green-400"><FiPrinter size={18} /></button>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
         </table>
       </div>
       {totalPages > 1 && (
@@ -315,4 +252,5 @@ const Invoices = () => {
     </div>
   );
 };
+
 export default Invoices;

@@ -3,7 +3,6 @@ import axios from '../api/axiosConfig';
 import { getTodayRates } from '../api/rateApi';
 import toast from 'react-hot-toast';
 import { FiSearch, FiTrash2, FiPlus } from 'react-icons/fi';
-import LiveRates from '../components/LiveRates';
 
 const Billing = () => {
   // ---------- Customer ----------
@@ -22,7 +21,7 @@ const Billing = () => {
 
   // ---------- Cart & totals ----------
   const [cart, setCart] = useState([]);
-  const [discountType, setDiscountType] = useState('percentage');
+  const [discountType, setDiscountType] = useState('flat');
   const [discountValue, setDiscountValue] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paidAmount, setPaidAmount] = useState(0);
@@ -41,7 +40,7 @@ const Billing = () => {
   });
 
   // 👇 CHANGE THIS TO THE ID OF YOUR "Manual Item" PRODUCT (created once)
-  const MANUAL_PRODUCT_ID = 4;
+  const MANUAL_PRODUCT_ID = 4;  
 
   // ---------- Fetch today's rates ----------
   useEffect(() => {
@@ -141,6 +140,7 @@ const Billing = () => {
   const addToCart = (product) => {
     const dynamicPrice = calculateDynamicPrice(product);
     const ratePerGram = getRatePerGram(product.category?.name || 'Gold');
+    console.log('Rate per gram:', ratePerGram);
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       setCart(cart.map(item =>
@@ -150,6 +150,8 @@ const Billing = () => {
       ));
     } else {
       setCart([...cart, {
+        id: product.id,
+        product_id: product.id,  // ✅ add this line
         ...product,
         quantity: 1,
         unit_price: dynamicPrice,
@@ -200,25 +202,25 @@ const Billing = () => {
       toast.error('Valid weight is required');
       return;
     }
-
     const ratePerGram = getRatePerGram(manualItem.category);
     const making = parseFloat(manualItem.making_charges_per_gram) || 0;
     const stone = parseFloat(manualItem.stone_charges_per_gram) || 0;
     const weight = parseFloat(manualItem.weight);
     const unitPrice = (ratePerGram + making + stone) * weight;
-    const gstPercent = parseFloat(manualItem.gst_percent) || 5;
+    const gstPercent = parseFloat(manualItem.gst_percent) || 0;
 
     const manualCartItem = {
-        id: MANUAL_PRODUCT_ID,
-        product_name: manualItem.product_name, // custom name
-        category: { name: manualItem.category },
-        weight: parseFloat(manualItem.weight),
-        rate_per_gram: ratePerGram,
-        making_charges_per_gram: making,
-        stone_charges_per_gram: stone,
-        gst_percent: gstPercent,
-        unit_price: unitPrice,
-        quantity: 1,
+      id: `manual_${Date.now()}_${Math.random()}`,     // unique frontend key
+      product_id: MANUAL_PRODUCT_ID,                   // 👈 backend expects this
+      product_name: manualItem.product_name,
+      category: { name: manualItem.category },
+      weight: parseFloat(manualItem.weight),
+      rate_per_gram: ratePerGram,
+      making_charges_per_gram: making,
+      stone_charges_per_gram: stone,
+      gst_percent: gstPercent,
+      unit_price: unitPrice,
+      quantity: 1,
     };
 
     setCart([...cart, manualCartItem]);
@@ -229,7 +231,7 @@ const Billing = () => {
   // ---------- Cart helpers ----------
   const updateQuantity = (id, quantity) => {
     if (quantity < 1) return;
-    setCart(cart.map(item =>
+    setCart(prevCart => prevCart.map(item =>
       item.id === id ? { ...item, quantity: parseInt(quantity) } : item
     ));
   };
@@ -243,21 +245,31 @@ const Billing = () => {
     let totalMaking = 0;
     let totalStone = 0;
     let totalGST = 0;
+    let makingRate = 0;
+    let stoneRate = 0;
 
     cart.forEach(item => {
+      const weight = item.weight || 0;
+      const makingPerGram = item.making_charges_per_gram || 0;
+      const stonePerGram = item.stone_charges_per_gram || 0;
+      const totalWeight = weight * item.quantity;
+
       const itemTotal = item.unit_price * item.quantity;
       subtotal += itemTotal;
-      totalMaking += (item.making_charges_per_gram || 0) * item.quantity;
-      totalStone += (item.stone_charges_per_gram || 0) * item.quantity;
-      totalGST += (itemTotal + (item.making_charges_per_gram || 0) * item.quantity + (item.stone_charges_per_gram || 0) * item.quantity) * (item.gst_percent / 100);
+      totalMaking += makingPerGram * totalWeight;
+      totalStone += stonePerGram * totalWeight;
+      totalGST += itemTotal * (item.gst_percent / 100);
+
+      // Capture rates from first item (assuming they are same across cart)
+      if (!makingRate) makingRate = makingPerGram;
+      if (!stoneRate) stoneRate = stonePerGram;
     });
 
-    const taxableAmount = subtotal + totalMaking + totalStone;
     const discountAmount = discountType === 'percentage'
-      ? (taxableAmount + totalGST) * (discountValue / 100)
+      ? subtotal * (discountValue / 100)
       : discountValue;
 
-    let grandTotal = taxableAmount + totalGST - discountAmount;
+    let grandTotal = subtotal + totalGST - discountAmount;
     const roundOff = Math.round(grandTotal) - grandTotal;
     grandTotal = Math.round(grandTotal);
     const due = grandTotal - paidAmount;
@@ -267,11 +279,12 @@ const Billing = () => {
       totalMaking,
       totalStone,
       totalGST,
-      taxableAmount,
       discountAmount,
       roundOff,
       grandTotal,
       due,
+      makingRate,
+      stoneRate,
       paymentStatus: due <= 0 ? 'paid' : (paidAmount > 0 ? 'partial' : 'unpaid')
     };
   };
@@ -280,38 +293,43 @@ const Billing = () => {
 
   // ---------- Print invoice ----------
   const printInvoice = (invoice) => {
-  if (!invoice) {
-    toast.error('No invoice data to print');
-    return;
-  }
-  if (!invoice.items || invoice.items.length === 0) {
-    toast.error('Invoice has no items');
-    return;
-  }
+    if (!invoice) {
+      toast.error('No invoice data to print');
+      return;
+    }
+    if (!invoice.items || invoice.items.length === 0) {
+      toast.error('Invoice has no items');
+      return;
+    }
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    toast.error('Pop-up blocked. Please allow pop-ups for this site.');
-    return;
-  }
+    console.log("In voive Details--->",invoice);
+    
 
-  // Build rates HTML safely
-  let ratesHtml = '';
-  if (invoice.rates_snapshot) {
-    try {
-      const rates = JSON.parse(invoice.rates_snapshot);
-      ratesHtml = `<div class="rates-section"><strong>Today's Rates (per 10g):</strong><br/>${Object.entries(rates).map(([cat, rate]) => `${cat}: ₹${rate || '—'}`).join(' &nbsp;&nbsp; ')}</div>`;
-    } catch(e) { console.error('Invalid rates snapshot'); }
-  }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups for this site.');
+      return;
+    }
 
-  // Build items rows
-      const itemsRows = invoice.items.map(item => {
+    // Build rates HTML safely
+    let ratesHtml = '';
+    if (invoice.rates_snapshot) {
+      try {
+        const rates = JSON.parse(invoice.rates_snapshot);
+        ratesHtml = `<div class="rates-section"><strong>Today's Rates (per 10g):</strong><br/>${Object.entries(rates).map(([cat, rate]) => `${cat}: ₹${rate || '—'}`).join(' &nbsp;&nbsp; ')}</div>`;
+      } catch (e) { console.error('Invalid rates snapshot'); }
+    }
+
+    // Build items rows
+    
+    const itemsRows = invoice.items.map((item, idx) => {
       const weight = item.weight || item.product?.weight || 0;
       const ratePerGram = weight > 0 ? (item.unit_price / weight).toFixed(2) : '—';
       const productName = item.product_name || item.product?.product_name || 'Manual Item';
       const category = item.product?.category?.name || '—';
       return `
         <tr>
+          <td class="text-right">${idx + 1}</td>
           <td>${productName}</td>
           <td>${category}</td>
           <td class="text-right">${weight}</td>
@@ -323,18 +341,38 @@ const Billing = () => {
       `;
     }).join('');
 
-  const customerName = invoice.customer?.name || 'N/A';
-  const customerMobile = invoice.customer?.mobile || 'N/A';
+    const customerName = invoice.customer?.name || 'N/A';
+    const customerMobile = invoice.customer?.mobile || 'N/A';
 
-  // Write the HTML to the print window
-  printWindow.document.write(`
+    // Write the HTML to the print window
+    printWindow.document.write(`
     <!DOCTYPE html>
     <html>
     <head><title>Invoice ${invoice.invoice_number}</title>
     <style>
+      
+      @page {
+        size: A5;
+        margin: 1cm;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      table {
+        page-break-inside: avoid;
+        width: 100%;
+      }
+
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+        
       *{box-sizing:border-box} body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;font-size:14px}
       .invoice-container{max-width:800px;margin:0 auto;background:#fff;padding:20px;border:1px solid #ddd}
-      .header{text-align:center;margin-bottom:20px;border-bottom:2px solid #8B4513}
+      .header{text-align:center;border-bottom:2px solid #8B4513}
       .shop-name{font-size:32px;font-weight:bold;color:#8B4513}
       .tagline{font-size:12px;color:#555}
       .invoice-title{font-size:18px;font-weight:bold;margin-top:5px}
@@ -345,8 +383,15 @@ const Billing = () => {
       .text-right{text-align:right}
       .totals{text-align:right;margin-top:20px;border-top:1px solid #ddd;padding-top:10px}
       .grand-total{font-size:18px;font-weight:bold;margin-top:10px}
-      .footer{text-align:center;margin-top:30px;font-size:12px;color:#777}
-      @media print{body{margin:0;padding:0}.invoice-container{border:none;padding:0}}
+      .footer{text-align:center;margin-top:10px;font-size:12px;color:#777}
+      @media print {
+        body { margin: 0; padding: 0; }
+        .invoice-container { border: none; padding: 0; }
+        .note-bg {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
     </style>
     </head>
     <body>
@@ -354,30 +399,55 @@ const Billing = () => {
         <div class="header">
           <div class="shop-name">💎 AMBIKA JEWELLERS</div>
           <div class="tagline">Since 1985 | Trust & Quality</div>
+          <div class="address" style="font-size: 12px; color: #555; margin-top: 5px;">
+            Saraswati nagar, Near Rasbihari Int. School, Meri Link Road, Panchavti, Nashik-422003.
+          </div>
           <div class="invoice-title">TAX INVOICE</div>
-          <div>Invoice #: ${invoice.invoice_number}</div>
-          <div>Date: ${invoice.invoice_date}</div>
+          <div style="display: flex; justify-content: space-between; width: 100%;">
+            <span>Invoice #: ${invoice.invoice_number}</span>
+            <span>Date: ${invoice.invoice_date}</span>
+          </div>
         </div>
-        <div class="customer-info">
-          <strong>Customer:</strong> ${customerName}<br>
-          <strong>Mobile:</strong> ${customerMobile}<br>
+        <div class="note-bg" style="background-color: #e3f5fd; padding: 8px; margin-top: 15px; border-radius: 4px;">
+          <div style="font-size: 14px;">
+            <strong>Customer:</strong> ${invoice.customer.name}<br>
+            <strong>Mobile:</strong> ${invoice.customer.mobile}
+          </div>
+          <div style="font-size: 10px; color: #555; margin-top: 5px;">
+            ${invoice.customer.address ? `<strong>Address:</strong> ${invoice.customer.address}<br>` : ''}
+            ${invoice.customer.gst_number ? `<strong>GST:</strong> ${invoice.customer.gst_number}` : ''}
+          </div>
         </div>
+        <div class="note-bg" style="background-color: #d8d8d8; margin-top: 10px; font-size: 10px; text-align: center; border-radius: 4px;">
         ${ratesHtml}
+        </div>
         <table>
           <thead>
-            <tr><th>Item</th><th>Category</th><th class="text-right">Weight(g)</th><th class="text-right">Rate(₹/g)</th><th class="text-right">Qty</th><th class="text-right">Price(₹)</th><th class="text-right">Total(₹)</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Item</th>
+              <th>Category</th>
+              <th class="text-right">Weight(g)</th>
+              <th class="text-right">Rate(₹/g)</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Price(₹)</th>
+              <th class="text-right">Total(₹)</th>
+            </tr>
           </thead>
           <tbody>${itemsRows}</tbody>
         </table>
         <div class="totals">
           <div>Subtotal: ₹${Number(invoice.subtotal).toLocaleString()}</div>
-          <div>Making Charges: ₹${Number(invoice.making_charges_total).toLocaleString()}</div>
-          <div>Stone Charges: ₹${Number(invoice.stone_charges_total).toLocaleString()}</div>
+          <div>Making Charges: ₹${totals.totalMaking.toFixed(2)}</div>
+          <div>Stone Charges: ₹${totals.totalStone.toFixed(2)}</div>
           <div>CGST: ₹${Number(invoice.cgst_amount).toLocaleString()} | SGST: ₹${Number(invoice.sgst_amount).toLocaleString()}</div>
           <div>Discount: ₹${Number(invoice.discount_amount).toLocaleString()}</div>
           <div class="grand-total">Grand Total: ₹${Number(invoice.grand_total).toLocaleString()}</div>
           <div>Paid: ₹${Number(invoice.paid_amount).toLocaleString()}</div>
           <div>Due: ₹${Number(invoice.due_amount).toLocaleString()}</div>
+        </div>
+        <div class="note-bg" style="background-color: #eef2f5; padding: 8px; font-size: 12px; text-align: center; border-radius: 4px;">
+          * Rate includes making & stone charges
         </div>
         <div class="footer">Thank you for your business!<br>This is a computer generated invoice.</div>
       </div>
@@ -385,84 +455,89 @@ const Billing = () => {
     </body>
     </html>
   `);
-  printWindow.document.close();
-};
+    printWindow.document.close();
+  };
 
   // ---------- Create invoice ----------
-    const handleSubmit = async () => {
-      if (!selectedCustomer) {
-        toast.error('Please select a customer');
-        return;
-      }
-      if (cart.length === 0) {
-        toast.error('Cart is empty');
-        return;
-      }
-      if (paidAmount < 0) {
-        toast.error('Invalid paid amount');
-        return;
-      }
+  const handleSubmit = async () => {
+    if (!selectedCustomer) {
+      toast.error('Please select a customer');
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error('Cart is empty');
+      return;
+    }
+    if (paidAmount < 0) {
+      toast.error('Invalid paid amount');
+      return;
+    }
 
-      setSubmitting(true);
+    setSubmitting(true);
 
 
-      const items = cart.map(item => ({
-    product_id: item.id,
-    product_name: item.product_name,   // 👈 required for manual items
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    weight: item.weight,
-    making_charges_total: (item.making_charges_per_gram || 0) * item.quantity,
-    stone_charges_total: (item.stone_charges_per_gram || 0) * item.quantity,
-    gst_percent: item.gst_percent
-}));
+    const items = cart.map(item => ({
+      product_id: item.product_id,
+      product_name: item.product_name,   // 👈 required for manual items
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      weight: item.weight,
+      making_charges_total: (item.making_charges_per_gram || 0) * item.quantity,
+      stone_charges_total: (item.stone_charges_per_gram || 0) * item.quantity,
+      gst_percent: item.gst_percent
+    }));
 
-      try {
-        const response = await axios.post('/invoices', {
-          customer_id: selectedCustomer.id,
-          items,
-          payment_method: paymentMethod,
-          paid_amount: paidAmount,
-          discount_type: discountType,
-          discount_value: discountValue
-        });
+    try {
+      const response = await axios.post('/invoices', {
+        customer_id: selectedCustomer.id,
+        items,
+        payment_method: paymentMethod,
+        paid_amount: paidAmount,
+        discount_type: discountType,
+        discount_value: discountValue
+      });
 
-        toast.success('Invoice created successfully!');
+      toast.success('Invoice created successfully!');
 
-        // ✅ Correctly extract invoice id
-        const invoiceId = response.data.invoice.id;
-        const shouldPrint = window.confirm('Print invoice?');
-        
-        if (shouldPrint) {
-          try {
-            const fullInvoiceRes = await axios.get(`/invoices/${invoiceId}`);
-            printInvoice(fullInvoiceRes.data);
-          } catch (printErr) {
-            console.error('Print error:', printErr);
-            toast.error('Could not load invoice for printing');
-          }
+      // ✅ Correctly extract invoice id
+      const invoiceId = response.data.invoice.id;
+      const shouldPrint = window.confirm('Print invoice?');
+
+      if (shouldPrint) {
+        try {
+          const fullInvoiceRes = await axios.get(`/invoices/${invoiceId}`);
+          printInvoice(fullInvoiceRes.data);
+        } catch (printErr) {
+          console.error('Print error:', printErr);
+          toast.error('Could not load invoice for printing');
         }
-
-        // Reset form
-        setCart([]);
-        setSelectedCustomer(null);
-        setCustomerSearch('');
-        setDiscountValue(0);
-        setPaidAmount(0);
-        setPaymentMethod('cash');
-
-      } catch (error) {
-        console.error('Invoice creation error:', error);
-        toast.error(error.response?.data?.error || 'Failed to create invoice');
-      } finally {
-        setSubmitting(false);
       }
-    };
+
+      // Reset form
+      setCart([]);
+      setSelectedCustomer(null);
+      setCustomerSearch('');
+      setDiscountValue(0);
+      setPaidAmount(0);
+      setPaymentMethod('cash');
+
+    } catch (error) {
+      console.error('Invoice creation error:', error);
+      toast.error(error.response?.data?.error || 'Failed to create invoice');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const [paymentMode, setPaymentMode] = useState('full'); // 'full' or 'partial'
+  useEffect(() => {
+  if (paymentMode === 'full') {
+    setPaidAmount(totals.grandTotal);
+  }
+}, [totals.grandTotal, paymentMode]);
 
   return (
     <div className="p-6 dark:bg-gray-900 min-h-screen">
-      <LiveRates />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left panel */}
         <div className="lg:col-span-2 space-y-6">
@@ -479,7 +554,7 @@ const Billing = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2"
               />
               {showCustomerDropdown && customerSearch.length > 1 && (
-                <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                <div className="absolute z-10 w-full bg-white dark:bg-gray-800 dark:text-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
                   {customers.map(customer => (
                     <div key={customer.id} className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       onClick={() => { setSelectedCustomer(customer); setCustomerSearch(customer.name); setShowCustomerDropdown(false); }}>
@@ -596,16 +671,33 @@ const Billing = () => {
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Bill Summary</h2>
             <div className="space-y-2 dark:text-gray-300">
               <div className="flex justify-between"><span>Subtotal:</span><span>₹{totals.subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Making Charges:</span><span>₹{totals.totalMaking.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Stone Charges:</span><span>₹{totals.totalStone.toFixed(2)}</span></div>
+              <div className="flex justify-between">
+                <span>Making Charges:</span>
+                <span>₹{totals.totalMaking.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Stone Charges:</span>
+                <span>₹{totals.totalStone.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between"><span>GST:</span><span>₹{totals.totalGST.toFixed(2)}</span></div>
               <div className="flex justify-between items-center">
                 <span>Discount:</span>
                 <div className="flex gap-2">
-                  <select value={discountType} onChange={e => setDiscountType(e.target.value)} className="border rounded px-2 py-1 dark:bg-gray-700 dark:text-white">
-                    <option value="percentage">%</option><option value="flat">₹</option>
+                  <select
+                    value={discountType}
+                    onChange={e => setDiscountType(e.target.value)}
+                    className="border rounded px-2 py-1 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="percentage">%</option>
+                    <option value="flat">₹</option>
                   </select>
-                  <input type="number" value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} className="w-24 border rounded px-2 py-1 dark:bg-gray-700 dark:text-white" />
+                  <input
+                    type="number"
+                    value={discountValue}
+                    onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    className="w-28 border rounded px-2 py-1 dark:bg-gray-700 dark:text-white"
+                    placeholder={discountType === 'flat' ? 'Amount' : 'Percent'}
+                  />
                 </div>
               </div>
               <div className="flex justify-between"><span>Round Off:</span><span>₹{totals.roundOff.toFixed(2)}</span></div>
@@ -618,17 +710,43 @@ const Billing = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Payment</h2>
             <div className="space-y-4">
-              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full border rounded px-4 py-2 dark:bg-gray-700 dark:text-white">
-                <option value="cash">Cash</option><option value="card">Card</option><option value="upi">UPI</option><option value="mixed">Mixed</option>
+              <select
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-4 py-2"
+              >
+                <option value="full">Full Payment (Paid All)</option>
+                <option value="partial">Partial Payment</option>
               </select>
-              <input type="number" placeholder="Paid Amount" value={paidAmount} onChange={e => setPaidAmount(parseFloat(e.target.value) || 0)} className="w-full border rounded px-4 py-2 dark:bg-gray-700 dark:text-white" />
+
+              <input
+                type="number"
+                placeholder="Paid Amount"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                disabled={paymentMode === 'full'}
+                className={`w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 dark:text-white ${
+                  paymentMode === 'full'
+                    ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
+                    : 'dark:bg-gray-700'
+                }`}
+              />
+
               <div className="flex justify-between dark:text-gray-300">
-                <span>Due Amount:</span><span className="font-bold text-red-600">₹{totals.due.toFixed(2)}</span>
+                <span>Due Amount:</span>
+                <span className="font-bold text-red-600 dark:text-red-400">₹{totals.due.toFixed(2)}</span>
               </div>
+
               <div className="flex justify-between dark:text-gray-300">
-                <span>Status:</span><span className="capitalize font-semibold">{totals.paymentStatus}</span>
+                <span>Status:</span>
+                <span className="capitalize font-semibold">{totals.paymentStatus}</span>
               </div>
-              <button onClick={handleSubmit} disabled={submitting || cart.length === 0} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+
+              <button
+                onClick={handleSubmit}
+                disabled={submitting || cart.length === 0}
+                className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
                 {submitting ? 'Processing...' : 'Generate Invoice'}
               </button>
             </div>

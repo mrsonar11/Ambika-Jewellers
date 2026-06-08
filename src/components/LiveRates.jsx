@@ -22,46 +22,38 @@ const LiveRates = () => {
 
   useEffect(() => {
     fetchRates();
-    const interval = setInterval(fetchRates, 60000);
-    return () => clearInterval(interval);
+    window.addEventListener('rates-updated', fetchRates);
+    return () => window.removeEventListener('rates-updated', fetchRates);
   }, []);
 
-  if (loading) return <div className="bg-gray-100 dark:bg-gray-800 p-2 text-center text-sm rounded-lg mb-4">Loading rates...</div>;
+  if (loading) return <div className="text-center text-xs py-0.5 bg-gray-100 dark:bg-gray-800">Loading rates...</div>;
   if (error) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 mb-6 overflow-x-auto">
-      <div className="flex flex-nowrap gap-6 justify-around min-w-max">
+    <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-xs py-1 px-2">
+      <div className="flex flex-wrap justify-center gap-3 overflow-x-auto">
         {Object.entries(rates).map(([category, data]) => {
           const change = data.change;
           const isPositive = change > 0;
           const isNegative = change < 0;
           const changeColor = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-500';
-          const bgColor = isPositive ? 'bg-green-50 dark:bg-green-900/30' : isNegative ? 'bg-red-50 dark:bg-red-900/30' : 'bg-gray-50 dark:bg-gray-700';
-          
           return (
-            <div key={category} className={`flex flex-col items-center px-4 py-2 rounded-lg ${bgColor} min-w-[100px]`}>
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{category}</span>
-              <span className="text-xl font-bold dark:text-white">
-                ₹{data.today ? data.today.toLocaleString() : '—'}
-              </span>
+            <div key={category} className="inline-flex items-center gap-1">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{category}</span>
+              <span className="font-mono font-bold dark:text-white">₹{data.today ? data.today.toLocaleString() : '—'}</span>
               {data.change !== null && (
-                <div className={`flex items-center gap-1 text-sm font-medium ${changeColor}`}>
-                  {isPositive && <FiTrendingUp size={14} />}
-                  {isNegative && <FiTrendingDown size={14} />}
-                  <span>{isPositive ? '+' : ''}{Math.abs(change).toFixed(2)}</span>
-                  {data.percentage && (
-                    <span className="text-xs opacity-75">
-                      ({isPositive ? '+' : ''}{data.percentage.toFixed(1)}%)
-                    </span>
-                  )}
+                <div className={`flex items-center gap-0.5 ${changeColor}`}>
+                  {isPositive && <FiTrendingUp size={10} />}
+                  {isNegative && <FiTrendingDown size={10} />}
+                  <span className="text-[10px]">{isPositive ? '+' : ''}{Math.abs(change).toFixed(0)}</span>
+                  <span className="text-[9px] opacity-70">({isPositive ? '+' : ''}{data.percentage?.toFixed(1)}%)</span>
                 </div>
               )}
             </div>
           );
         })}
+        <span className="text-[10px] text-gray-400 ml-1">(per 10g)</span>
       </div>
-      <div className="text-center text-xs text-gray-400 mt-2">Rates per 10 grams • Auto‑refresh every minute</div>
     </div>
   );
 };

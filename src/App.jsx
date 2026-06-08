@@ -19,6 +19,7 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 import Users from './pages/Users';
+import Mortgage from './pages/Mortgage';
 
 function App() {
   const { loading, user } = useAuth();
@@ -41,6 +42,7 @@ function App() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/mortgage" element={<Mortgage />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" />} />
