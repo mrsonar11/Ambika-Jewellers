@@ -276,7 +276,7 @@ const Mortgage = () => {
                   <div className="relative">
                     <input type="text" placeholder="Search customer" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} onFocus={() => setShowCustomerDropdown(true)} className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" required />
                     {showCustomerDropdown && customerSearch.length > 1 && (
-                      <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border rounded shadow-lg max-h-60 overflow-y-auto mt-1">
+                      <div className="absolute z-10 w-full bg-white dark:bg-gray-800 dark:text-white border rounded shadow-lg max-h-60 overflow-y-auto mt-1">
                         {customers.map(c => (
                           <div key={c.id} className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onClick={() => {
                             setFormData({ ...formData, customer_id: c.id });
@@ -356,7 +356,7 @@ const Mortgage = () => {
       {/* View Details Modal */}
       {viewingDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto p-6">
+          <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold dark:text-white">Mortgage Details</h2>
               <button onClick={() => setViewingDetails(null)} className="text-gray-500 dark:text-gray-400"><FiX size={24} /></button>

@@ -12,13 +12,15 @@ const Customers = () => {
   const [viewingHistory, setViewingHistory] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [formData, setFormData] = useState({
+  const [customerForm, setCustomerForm] = useState({
     name: '',
     mobile: '',
     address: '',
     email: '',
     gst_number: ''
   });
+  const [idProofFile, setIdProofFile] = useState(null);
+  const [idProofPreview, setIdProofPreview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Payment modal state
@@ -57,9 +59,11 @@ const Customers = () => {
   };
 
   const openModal = (customer = null) => {
+    setIdProofFile(null);
+    setIdProofPreview(null);
     if (customer) {
       setEditingCustomer(customer);
-      setFormData({
+      setCustomerForm({
         name: customer.name,
         mobile: customer.mobile,
         address: customer.address || '',
@@ -68,7 +72,7 @@ const Customers = () => {
       });
     } else {
       setEditingCustomer(null);
-      setFormData({
+      setCustomerForm({
         name: '',
         mobile: '',
         address: '',
@@ -81,24 +85,46 @@ const Customers = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setCustomerForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    const formData = new FormData();
+    formData.append('name', customerForm.name);
+    formData.append('mobile', customerForm.mobile);
+    formData.append('address', customerForm.address || '');
+    formData.append('email', customerForm.email || '');
+    formData.append('gst_number', customerForm.gst_number || '');
+    if (idProofFile) {
+      formData.append('id_proof', idProofFile);
+    }
+
     try {
       if (editingCustomer) {
-        await axios.put(`/customers/${editingCustomer.id}`, formData);
+        formData.append('_method', 'PUT');
+        await axios.post(`/customers/${editingCustomer.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         toast.success('Customer updated');
       } else {
-        await axios.post('/customers', formData);
+        await axios.post('/customers', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         toast.success('Customer added');
       }
       setShowModal(false);
       fetchCustomers();
     } catch (error) {
-      toast.error(error.response?.data?.errors || 'Operation failed');
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const firstError = Object.values(errors)[0]?.[0];
+        toast.error(firstError || 'Validation failed');
+      } else {
+        toast.error(error.response?.data?.message || 'Operation failed');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +149,6 @@ const Customers = () => {
       await axios.post(`/invoices/${selectedInvoice.id}/pay`, { amount: parseFloat(paymentAmount) });
       toast.success('Payment recorded');
       setShowPaymentModal(false);
-      // Refresh the purchase history
       if (viewingHistory) {
         const refreshed = await axios.get(`/customers/${viewingHistory.customer.id}/history`);
         setViewingHistory(refreshed.data);
@@ -237,7 +262,7 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Add/Edit Customer Modal */}
+      {/* Add/Edit Customer Modal with ID Proof Upload */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
@@ -249,11 +274,55 @@ const Customers = () => {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
-                <input name="name" value={formData.name} onChange={handleInputChange} placeholder="Name *" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" required />
-                <input name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="Mobile Number *" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" required />
-                <input name="email" type="email" value={formData.email} onChange={handleInputChange} placeholder="Email" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
-                <textarea name="address" value={formData.address} onChange={handleInputChange} placeholder="Address" rows="2" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2"></textarea>
-                <input name="gst_number" value={formData.gst_number} onChange={handleInputChange} placeholder="GST Number (optional)" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
+                <input name="name" value={customerForm.name} onChange={handleInputChange} placeholder="Name *" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" required />
+                <input name="mobile" value={customerForm.mobile} onChange={handleInputChange} placeholder="Mobile Number *" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" required />
+                <input name="email" type="email" value={customerForm.email} onChange={handleInputChange} placeholder="Email" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
+                <textarea name="address" value={customerForm.address} onChange={handleInputChange} placeholder="Address" rows="2" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2"></textarea>
+                <input name="gst_number" value={customerForm.gst_number} onChange={handleInputChange} placeholder="GST Number (optional)" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
+                {/* ID Proof Upload */}
+                <div>
+                  <label className="block text-sm font-medium dark:text-gray-300">ID Proof (Optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error('File size exceeds 2MB limit. Please choose a smaller image.');
+                          e.target.value = '';
+                          return;
+                        }
+                        setIdProofFile(file);
+                        setIdProofPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Max file size: 2MB. Supported: JPG, PNG, GIF.</p>
+                  {idProofPreview && (
+                    <img src={idProofPreview} alt="ID Proof Preview" className="mt-2 h-20 w-20 object-cover rounded" />
+                  )}
+                  {editingCustomer && editingCustomer.id_proof_path && !idProofFile && (
+                    <div className="mt-2">
+                      <span className="text-xs text-gray-500">Current ID Proof:</span>
+                      <a
+                        href={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${editingCustomer.id_proof_path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 text-sm ml-2"
+                      >
+                        View
+                      </a>
+                      <img
+                        src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${editingCustomer.id_proof_path}`}
+                        alt="Current ID Proof"
+                        className="mt-2 h-20 w-20 object-cover rounded"
+                        onError={(e) => e.target.style.display = 'none'}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded dark:text-gray-300">Cancel</button>
@@ -266,16 +335,28 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Purchase History Modal */}
+      {/* Purchase History Modal - FIXED with all columns visible */}
       {viewingHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-[80vh] overflow-y-auto p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-5xl max-h-[80vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Purchase History: {viewingHistory.customer.name}</h2>
               <button onClick={() => setViewingHistory(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
                 <FiX size={24} />
               </button>
             </div>
+            {viewingHistory.customer.id_proof_path && (
+              <div className="mb-4">
+                <a
+                  href={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${viewingHistory.customer.id_proof_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 text-sm underline"
+                >
+                  View ID Proof
+                </a>
+              </div>
+            )}
             {viewingHistory.purchases.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No purchases yet.</p>
             ) : (
@@ -298,7 +379,15 @@ const Customers = () => {
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-200">{inv.invoice_date}</td>
                         <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-gray-200">₹{inv.grand_total}</td>
                         <td className="px-4 py-2 text-sm text-right text-red-600 dark:text-red-400 font-semibold">₹{inv.due_amount}</td>
-                        <td className="px-4 py-2 text-sm capitalize">{inv.payment_status}</td>
+                        <td className="px-4 py-2 text-sm capitalize">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            inv.payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                            inv.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          }`}>
+                            {inv.payment_status}
+                          </span>
+                        </td>
                         <td className="px-4 py-2 text-center">
                           {inv.due_amount > 0 && (
                             <button

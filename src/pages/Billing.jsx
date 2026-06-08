@@ -213,6 +213,7 @@ const Billing = () => {
       id: `manual_${Date.now()}_${Math.random()}`,     // unique frontend key
       product_id: MANUAL_PRODUCT_ID,                   // 👈 backend expects this
       product_name: manualItem.product_name,
+      category_name: manualItem.category,
       category: { name: manualItem.category },
       weight: parseFloat(manualItem.weight),
       rate_per_gram: ratePerGram,
@@ -326,7 +327,8 @@ const Billing = () => {
       const weight = item.weight || item.product?.weight || 0;
       const ratePerGram = weight > 0 ? (item.unit_price / weight).toFixed(2) : '—';
       const productName = item.product_name || item.product?.product_name || 'Manual Item';
-      const category = item.product?.category?.name || '—';
+      // const category = item.product?.category?.name || '—';
+      const category = item.category_name || item.product?.category?.name || '—';
       return `
         <tr>
           <td class="text-right">${idx + 1}</td>
@@ -479,6 +481,7 @@ const Billing = () => {
     const items = cart.map(item => ({
       product_id: item.product_id,
       product_name: item.product_name,   // 👈 required for manual items
+      category_name: item.category_name || item.category?.name,
       quantity: item.quantity,
       unit_price: item.unit_price,
       weight: item.weight,

@@ -44,15 +44,19 @@ const Dashboard = () => {
   return (
     <div className="p-6 dark:bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Dashboard</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex flex-wrap gap-6">
         {cards.map((card, idx) => (
-          <div key={idx} className={`bg-gradient-to-br ${card.bg} rounded-xl shadow-lg p-5 transform transition hover:scale-105 duration-200`}>
+          <div
+            key={idx}
+            className={`bg-gradient-to-br ${card.bg} rounded-xl shadow-lg p-5 transition hover:scale-105 duration-200 overflow-hidden flex-1 min-w-[250px] max-w-[350px]`}
+            style={{ flex: '1 1 280px' }}
+          >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-white opacity-90">{card.title}</p>
-                <p className="text-2xl font-bold mt-2 text-white">{card.value}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white opacity-90 break-words">{card.title}</p>
+                <p className="text-2xl font-bold mt-2 text-white break-words">{card.value}</p>
               </div>
-              <div className="p-3 rounded-full bg-white bg-opacity-20 text-white">
+              <div className="p-3 rounded-full bg-white bg-opacity-20 text-white flex-shrink-0 ml-3">
                 <card.icon size={28} />
               </div>
             </div>
