@@ -1,17 +1,41 @@
 import { useEffect, useState } from "react";
 import axios from "../api/axiosConfig";
 import { useAuth } from "../contexts/AuthContext";
+import { useRates } from "../contexts/RateContext";
+import { getTodayRates } from "../api/rateApi";
 import { FiDollarSign, FiTrendingUp, FiClock, FiUsers, FiPackage } from "react-icons/fi";
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const { user } = useAuth();
+  const { openModal } = useRates();
 
+  // Fetch dashboard stats
   useEffect(() => {
     axios.get("/dashboard/stats")
       .then(res => setData(res.data))
       .catch(err => console.error(err));
   }, []);
+
+  // Check for missing today's rates (only for admin)
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    const checkRates = async () => {
+      try {
+        const rates = await getTodayRates();
+        const categories = ['Gold', 'Silver', 'Diamond', 'Platinum'];
+        const missing = categories.some(cat => !rates[cat]?.rate_per_10gm);
+        if (missing) {
+          openModal();   // open the rate entry modal
+        }
+      } catch (error) {
+        console.error("Failed to check rates", error);
+        // If API fails, also open modal (user can enter rates)
+        openModal();
+      }
+    };
+    checkRates();
+  }, [user, openModal]); // runs only once on mount and when user changes
 
   if (!data) return <div className="p-6 dark:bg-gray-900 dark:text-white">Loading dashboard...</div>;
 
