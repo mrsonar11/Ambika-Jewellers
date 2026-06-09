@@ -31,16 +31,14 @@ const LiveRates = () => {
     isMounted.current = true;
     fetchRates();
 
-    const handleRatesUpdate = () => {
-      fetchRates();
-    };
+    const handleRatesUpdate = () => fetchRates();
     window.addEventListener('rates-updated', handleRatesUpdate);
 
     return () => {
       isMounted.current = false;
       window.removeEventListener('rates-updated', handleRatesUpdate);
     };
-  }, []); // ✅ runs once
+  }, []);
 
   if (loading) return <div className="text-center text-sm py-1">Loading rates...</div>;
   if (error) return null;

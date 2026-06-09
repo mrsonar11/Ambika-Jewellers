@@ -9,33 +9,34 @@ const Dashboard = () => {
   const [data, setData] = useState(null);
   const { user } = useAuth();
   const { openModal } = useRates();
+  const [hasChecked, setHasChecked] = useState(false);
 
-  // Fetch dashboard stats
   useEffect(() => {
     axios.get("/dashboard/stats")
       .then(res => setData(res.data))
       .catch(err => console.error(err));
   }, []);
 
-  // Check for missing today's rates (only for admin)
   useEffect(() => {
     if (user?.role !== 'admin') return;
+    if (hasChecked) return;      // prevent running more than once
     const checkRates = async () => {
       try {
         const rates = await getTodayRates();
         const categories = ['Gold', 'Silver', 'Diamond', 'Platinum'];
         const missing = categories.some(cat => !rates[cat]?.rate_per_10gm);
         if (missing) {
-          openModal();   // open the rate entry modal
+          openModal();
         }
       } catch (error) {
         console.error("Failed to check rates", error);
-        // If API fails, also open modal (user can enter rates)
-        openModal();
+        openModal();   // if API fails, open modal anyway
+      } finally {
+        setHasChecked(true);
       }
     };
     checkRates();
-  }, [user, openModal]); // runs only once on mount and when user changes
+  }, [user, openModal, hasChecked]); // runs only once
 
   if (!data) return <div className="p-6 dark:bg-gray-900 dark:text-white">Loading dashboard...</div>;
 
