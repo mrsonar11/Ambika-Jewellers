@@ -40,7 +40,7 @@ const LiveRates = () => {
       isMounted.current = false;
       window.removeEventListener('rates-updated', handleRatesUpdate);
     };
-  }, []); // ✅ empty dependency – runs once
+  }, []); // ✅ runs once
 
   if (loading) return <div className="text-center text-sm py-1">Loading rates...</div>;
   if (error) return null;
