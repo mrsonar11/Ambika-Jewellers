@@ -38,8 +38,8 @@ const TopNavbar = () => {
       <div className="px-4 flex items-center justify-between h-12 min-h-[48px]">
         {/* Left side - empty spacer */}
         <div className="flex items-center gap-2 flex-shrink-0">
-        <img src="/logo.png" alt="Ambika Jewellers" className="h-20 w-28 -ml-4 mb-7" />
-        <span className="font-bold text-gray-1000 dark:text-yellow-300 text-lg hidden sm:inline">Ambika <br/> Jewellers</span>
+        <img src="/logo.png" alt="Ambika Jewellers" className="h-20 w-28 -ml-4 mb-7" /> 
+        <span className="font-bold text-yellow-300 text-2xl hidden sm:inline relative -top-3 leading-none tracking-wide" style={{ fontFamily: 'Cinzel, serif' }}>AMBIKA <br />JEWELLERS</span>
         </div>
 
         {/* Navigation links - horizontal scroll on overflow, no wrap */}
