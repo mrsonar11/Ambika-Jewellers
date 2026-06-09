@@ -51,7 +51,7 @@ const LiveRates = () => {
   if (error) return null;
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 py-1 px-2 text-xs overflow-x-auto">
+    <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 py-1 px-2 text-l overflow-x-auto">
       <div className="flex justify-center items-center gap-4 whitespace-nowrap">
         <span className="text-gray-500 dark:text-gray-400 font-medium">Rates per 10g:</span>
         {categoryOrder.map((category) => {
