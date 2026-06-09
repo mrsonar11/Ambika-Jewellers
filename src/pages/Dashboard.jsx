@@ -67,13 +67,13 @@ const Dashboard = () => {
   const cards = isAdmin ? adminCards : staffCards;
 
   return (
-    <div className="p-6 dark:bg-gray-900 min-h-screen">
+    <div className="p-2 dark:bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Dashboard</h1>
       <div className="flex flex-wrap gap-6">
         {cards.map((card, idx) => (
           <div
             key={idx}
-            className={`bg-gradient-to-br ${card.bg} rounded-xl shadow-lg p-5 transition hover:scale-105 duration-200 overflow-hidden flex-1 min-w-[250px] max-w-[350px]`}
+            className={`bg-gradient-to-br ${card.bg} rounded-xl shadow-lg p-2 transition hover:scale-105 duration-200 overflow-hidden flex-1 min-w-[250px] max-w-[350px]`}
             style={{ flex: '1 1 280px' }}
           >
             <div className="flex items-center justify-between">
