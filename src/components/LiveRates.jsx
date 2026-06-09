@@ -13,7 +13,8 @@ const LiveRates = () => {
     if (fetchInProgress.current) return;
     fetchInProgress.current = true;
     try {
-      const res = await axios.get('/rates/today/comparison');
+      // const res = await axios.get('/rates/today/comparison');
+      const res = await axios.get('/rates/today');
       if (isMounted.current) {
         setRates(res.data);
         setError(false);
