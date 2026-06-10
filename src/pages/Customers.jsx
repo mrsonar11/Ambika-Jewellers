@@ -161,8 +161,8 @@ const Customers = () => {
   };
 
   return (
-    <div className="p-6 dark:bg-gray-900 min-h-screen">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <div className=" dark:bg-gray-900 min-h-screen">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-1">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Customers</h1>
         <button
           onClick={() => openModal()}
@@ -265,7 +265,7 @@ const Customers = () => {
       {/* Add/Edit Customer Modal with ID Proof Upload */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{editingCustomer ? 'Edit Customer' : 'Add Customer'}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
@@ -338,7 +338,7 @@ const Customers = () => {
       {/* Purchase History Modal - FIXED with all columns visible */}
       {viewingHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-5xl max-h-[80vh] overflow-y-auto p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-5xl max-h-[80vh] overflow-y-auto p-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Purchase History: {viewingHistory.customer.name}</h2>
               <button onClick={() => setViewingHistory(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
@@ -415,7 +415,7 @@ const Customers = () => {
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold dark:text-white">Record Payment</h2>
               <button onClick={() => setShowPaymentModal(false)} className="text-gray-500 dark:text-gray-400 text-2xl">&times;</button>

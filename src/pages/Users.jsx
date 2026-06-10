@@ -111,7 +111,7 @@ const Users = () => {
   };
 
   return (
-    <div className="p-6 dark:bg-gray-900 min-h-screen">
+    <div className="dark:bg-gray-900 min-h-screen">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Users</h1>
         <button onClick={() => openModal()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">

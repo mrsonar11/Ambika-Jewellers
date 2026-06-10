@@ -239,7 +239,7 @@ const Products = () => {
   const hintColor = darkMode ? '#9ca3af' : '#6b7280';
 
   return (
-    <div className="p-6 dark:bg-gray-900 min-h-screen">
+    <div className=" dark:bg-gray-900 min-h-screen">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Products</h1>
         {isAdmin && (

@@ -4,7 +4,7 @@ import LiveRates from "./LiveRates";
 
 const Layout = () => {
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col ">
       <LiveRates />
       <TopNavbar />
       <main className="flex-1 overflow-y-auto p-6 bg-gray-100 dark:bg-gray-900">
