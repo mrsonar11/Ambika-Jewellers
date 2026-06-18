@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+echo ".env" >> .gitignore
+echo "vendor/" >> .gitignore
+echo "storage/*.key" >> .gitignore
