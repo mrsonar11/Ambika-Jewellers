@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from '../api/axiosConfig';
 import toast from 'react-hot-toast';
 import { FiEdit2, FiTrash2, FiSearch, FiPlus, FiX, FiEye } from 'react-icons/fi';
@@ -28,11 +28,28 @@ const Customers = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paying, setPaying] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+
+  // Payment history modal
+  const [showPaymentHistoryModal, setShowPaymentHistoryModal] = useState(false);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
+
+  // --- Debounce for search ---
+  const debounceTimer = useRef(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(debounceTimer.current);
+  }, [search]);
 
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/customers', { params: { page, search } });
+      const res = await axios.get('/customers', { params: { page, search: debouncedSearch } });
       setCustomers(res.data.data);
       setTotalPages(Math.ceil(res.data.total / 10));
     } catch (error) {
@@ -44,7 +61,7 @@ const Customers = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, [page, search]);
+  }, [page, debouncedSearch]);
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
@@ -146,9 +163,17 @@ const Customers = () => {
     }
     setPaying(true);
     try {
-      await axios.post(`/invoices/${selectedInvoice.id}/pay`, { amount: parseFloat(paymentAmount) });
+      await axios.post(`/invoices/${selectedInvoice.id}/pay`, {
+        amount: parseFloat(paymentAmount),
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: paymentMethod,
+        remarks: 'Payment recorded from customer history'
+      });
       toast.success('Payment recorded');
       setShowPaymentModal(false);
+      setSelectedInvoice(null);
+      setPaymentAmount('');
+      setPaymentMethod('cash');
       if (viewingHistory) {
         const refreshed = await axios.get(`/customers/${viewingHistory.customer.id}/history`);
         setViewingHistory(refreshed.data);
@@ -160,9 +185,19 @@ const Customers = () => {
     }
   };
 
+  const fetchInvoicePayments = async (invoiceId) => {
+    try {
+      const res = await axios.get(`/invoices/${invoiceId}`);
+      setSelectedInvoiceForPayment(res.data);
+      setShowPaymentHistoryModal(true);
+    } catch (error) {
+      toast.error('Failed to load payment history');
+    }
+  };
+
   return (
-    <div className=" dark:bg-gray-900 min-h-screen">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-1">
+    <div className="p-6 dark:bg-gray-900 min-h-screen">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Customers</h1>
         <button
           onClick={() => openModal()}
@@ -262,10 +297,10 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Add/Edit Customer Modal with ID Proof Upload */}
+      {/* Add/Edit Customer Modal – with scrollable content */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-2">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{editingCustomer ? 'Edit Customer' : 'Add Customer'}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
@@ -279,7 +314,6 @@ const Customers = () => {
                 <input name="email" type="email" value={customerForm.email} onChange={handleInputChange} placeholder="Email" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
                 <textarea name="address" value={customerForm.address} onChange={handleInputChange} placeholder="Address" rows="2" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2"></textarea>
                 <input name="gst_number" value={customerForm.gst_number} onChange={handleInputChange} placeholder="GST Number (optional)" className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-2" />
-                {/* ID Proof Upload */}
                 <div>
                   <label className="block text-sm font-medium dark:text-gray-300">ID Proof (Optional)</label>
                   <input
@@ -335,10 +369,10 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Purchase History Modal - FIXED with all columns visible */}
+      {/* Purchase History Modal */}
       {viewingHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-5xl max-h-[80vh] overflow-y-auto p-2">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-5xl max-h-[80vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Purchase History: {viewingHistory.customer.name}</h2>
               <button onClick={() => setViewingHistory(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
@@ -384,11 +418,9 @@ const Customers = () => {
                             inv.payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                             inv.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                             'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          }`}>
-                            {inv.payment_status}
-                          </span>
+                          }`}>{inv.payment_status}</span>
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-4 py-2 text-center space-x-2">
                           {inv.due_amount > 0 && (
                             <button
                               onClick={() => {
@@ -396,11 +428,17 @@ const Customers = () => {
                                 setPaymentAmount('');
                                 setShowPaymentModal(true);
                               }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
                             >
                               Pay Now
                             </button>
                           )}
+                          <button
+                            onClick={() => fetchInvoicePayments(inv.id)}
+                            className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-2 py-1 rounded text-xs"
+                          >
+                            Payments
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -414,8 +452,8 @@ const Customers = () => {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-2">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold dark:text-white">Record Payment</h2>
               <button onClick={() => setShowPaymentModal(false)} className="text-gray-500 dark:text-gray-400 text-2xl">&times;</button>
@@ -433,11 +471,77 @@ const Customers = () => {
                 <label className="block text-sm font-medium dark:text-gray-300">Payment Amount</label>
                 <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Enter amount" className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:text-white" required />
               </div>
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">Payment Mode</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="upi">UPI</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowPaymentModal(false)} className="px-4 py-2 border rounded dark:text-gray-300">Cancel</button>
               <button onClick={handlePayment} disabled={paying} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">
                 {paying ? 'Processing...' : 'Pay Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment History Modal */}
+      {showPaymentHistoryModal && selectedInvoiceForPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold dark:text-white">
+                Payment History – {selectedInvoiceForPayment.invoice_number}
+              </h2>
+              <button
+                onClick={() => setShowPaymentHistoryModal(false)}
+                className="text-gray-500 dark:text-gray-400 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            {selectedInvoiceForPayment.payments && selectedInvoiceForPayment.payments.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Date</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Method</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedInvoiceForPayment.payments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="px-4 py-2 dark:text-gray-200">
+                          {new Date(p.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2 text-right dark:text-gray-200">₹{p.amount}</td>
+                        <td className="px-4 py-2 capitalize dark:text-gray-200">{p.payment_method}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="dark:text-gray-400">No payments recorded for this invoice.</p>
+            )}
+            <div className="mt-4 text-right">
+              <button
+                onClick={() => setShowPaymentHistoryModal(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded"
+              >
+                Close
               </button>
             </div>
           </div>
